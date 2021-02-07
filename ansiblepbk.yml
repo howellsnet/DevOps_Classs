@@ -1,0 +1,65 @@
+- hosts: dev
+  become: yes
+  tasks:
+    - name: Add EPEL repository
+      yum:
+        name: "http://rpmfind.net/linux/epel/7/x86_64/Packages/e/epel-release-7-13.noarch.rpm"
+        state: latest
+
+    - name: Install base packages
+      yum:
+        name: wget
+        state: present
+
+    - name: Install Java 8 RHEL
+      yum:
+        name: java
+        state: latest
+
+    - name: Add tomcat group
+      group:
+        name: tomcat
+
+    - name: Add "tomcat" user
+      user:
+        name: tomcat
+        group: tomcat
+        home:  /usr/local/tomcat
+        createhome: no
+        system: yes
+
+    - name: Download Tomcat
+      get_url:
+        url: https://downloads.apache.org/tomcat/tomcat-8/v8.5.61/bin/apache-tomcat-8.5.61.tar.gz
+        dest: /usr/local/tomcat
+
+    - name: Create a tomcat directory
+      file:
+        path: /usr/local/tomcat
+        state: directory
+        owner: tomcat
+        group: tomcat
+
+    - name: Extract tomcat archive
+      unarchive:
+        src: /usr/local/tomcat
+        dest: /usr/local/tomcat
+        owner: tomcat
+        group: tomcat
+        remote_src: yes
+        extra_opts: "--strip-components=1"
+        creates: /usr/local/tomcat/bin
+
+    - name: Copy tomcat service file
+      template:
+        src: templates/tomcat.service.j2
+        dest: /etc/systemd/system/tomcat.service
+      when: ansible_service_mgr == "systemd"
+
+    - name: Start and enable tomcat
+      service:
+        daemon_reload: yes
+        name: tomcat
+        state: started
+        enable: yes
+      when: ansible_service_mgr == "systemd"
